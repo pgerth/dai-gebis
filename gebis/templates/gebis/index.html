@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<title>DAI RaumGIS</title>
+
+		<link rel="stylesheet" type="text/css" href="http://arachne.uni-koeln.de/archaeostrap/assets/css/bootstrap.css" />
+		<link rel="stylesheet" type="text/css" href="static/stylesheets/overrides_bootstrap.css" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="stylesheet" type="text/css" href="http://arachne.uni-koeln.de/archaeostrap/assets/css/bootstrap-responsive.css" />
+
+        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.css" />
+        <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/themes/cupertino/jquery-ui.css" type="text/css" media="all" /> 
+        <style>
+            body {padding-top: 20px;}
+            #map { width: 100%; height: 800px}
+        </style>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+		<script src="http://cdn.leafletjs.com/leaflet-0.7.2/leaflet.js"></script>
+
+    </head>
+    <body>
+
+		<div id="menu" class="archaeo-fixed-menu">
+    		<div class="affix-menu-wrapper" style="height:auto;">
+        		<div id="affix-menu" class="container affix" data-spy="affix">
+            		<div class="navbar navbar-inverse" style="margin-bottom:0px;">
+               		 	<div class="navbar-inner">
+                    		<div id="archaeo-fixed-menu-icon"></div>
+                    		<a class="brand span1" href=""> RaumGIS </a>
+                    		<form id="search-form" class="navbar-search pull-left">
+                        		<input id="searchInput" class="input-medium search-query span3" type="text" placeholder="Suche"></input>
+                    		</form>
+                    		<div class="nav-collapse collapse pull-right">
+                        		<ul class="nav pull-right">
+                            		<li> 
+                            			<a style="font-size:80%; font-weight:bold; text-transform:uppercase;" href="#" onclick="dol(); false;"> Im Dol </a>
+                            		</li>
+                            		<li> 
+                            			<a style="font-size:80%; font-weight:bold; text-transform:uppercase;" href="#" onclick="hozo(); false;"> Hohenzollerndamm </a>
+                            		</li>
+                            		<li>
+                                		<a id="admin" style="font-size:80%; font-weight:bold; text-transform:uppercase;" href="/admin"> Admin </a>
+                            		</li>
+                        		</ul>
+                    		</div>
+                		</div>
+            		</div>
+        		</div>
+    		</div>
+		</div>
+
+
+       	<div id="map"></div>
+
+    </body>
+    <script type="text/javascript">
+        $(function initmap(){
+
+        	// Funktion für den Aufruf der Popup Fenster
+
+        	function popup(feature, layer) {
+        		layer.bindPopup(
+        			"<b> Raum " + feature.properties.raum_nr + "</b> <br>" +
+        			feature.properties.nutzung + "<br>" +
+        			feature.properties.flaeche + " qm<br>" +
+        			feature.properties.abteilung + "<br>" +
+        			"Mitarbeiter: " + feature.properties.mitarbeiter_by_room	+ "<br>" +
+        			"<a href='http://localhost:8000/admin/gebis/raeume/" + feature.id + "'> Bearbeiten... </a>"
+        			);
+			}
+
+			// Initialisierung der Karte
+
+            var map = L.map('map', {
+            	center: [52.4649, 13.295],
+            	zoom: 19
+            });
+
+            // Funktionen für die Navigation der Karte.
+
+            dol = function() {map.setView([52.4649, 13.295], 19);}
+            hozo = function() {map.setView([52.4861, 13.298], 19);}
+
+            // Baselayer (osm)
+
+            L.tileLayer('http://{s}.tile.cloudmade.com/96f9e3b01904446da17a780f9c16a304/997/256/{z}/{x}/{y}.png', {
+                attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>',
+                maxZoom: 25
+            }).addTo(map);
+
+            // Gebaeude Layer & jQuery Call der Daten
+
+            $.getJSON('{% url "data_gebaeude" %}', function (data_gebaeude) {
+                L.geoJson(data_gebaeude, {color: 'grey', weight:0, fillOpacity:1}).addTo(map);
+            });
+
+            // Raeume Layer & jQuery Call der Daten
+
+            var raeume0 = L.geoJson('', {
+            	filter: function (feature, layer) {if (feature.properties.etage == 0) {return true};}, 
+            	style: {color: 'white', weight: 2, fillOpacity: 0.3}, 
+            	onEachFeature: popup}
+            	);
+
+            var raeume1 = L.geoJson('', {
+            	filter: function (feature, layer) {if (feature.properties.etage == 1) {return true};}, 
+            	style: {color: 'white', weight: 2, fillOpacity: 0.3}, 
+            	onEachFeature: popup}
+            	);
+
+            var raeume2 = L.geoJson('', {
+            	filter: function (feature, layer) {if (feature.properties.etage == 2) {return true};}, 
+            	style: {color: 'white', weight: 2, fillOpacity: 0.3}, 
+            	onEachFeature: popup}
+            	);
+
+            $.getJSON('{% url "data_raeume" %}', function (data_raeume) {
+                raeume0.addData(data_raeume);
+                raeume1.addData(data_raeume);
+                raeume2.addData(data_raeume);
+            });
+
+            // Definition der Gruppenlayer und des LayerTrees
+		
+			var etage0 = L.layerGroup([raeume0]);
+			var etage1 = L.layerGroup([raeume1]);
+			var etage2 = L.layerGroup([raeume2]).addTo(map);
+
+			var overlays = {"1. OG": etage2, "EG / HP": etage1, "Keller": etage0};
+
+			L.control.layers(overlays).addTo(map);
+
+});
+        
+    </script>
+</html>
+
